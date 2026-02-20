@@ -1,0 +1,83 @@
+name: Validación de Formato de Entregas
+
+on:
+  push:
+    paths:
+      - '**'
+  pull_request:
+    paths:
+      - '**'
+
+jobs:
+  validar-formato:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout (historial completo)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Listar archivos cambiados en este commit
+        id: cambios
+        run: |
+          # Obtenemos archivos agregados/modificados/renombrados en el commit
+          # Formato: <STATUS>\t<RUTA>
+          git diff-tree --no-commit-id --name-status -r "$GITHUB_SHA" | tee cambios.txt
+
+          echo "==== Archivos detectados ===="
+          cat cambios.txt || true
+
+          # Extraemos las rutas (columna 2) y las guardamos en un archivo limpio
+          # Maneja renombrados donde git imprime: R100  old  new
+          awk '{
+            if ($1 ~ /^R[0-9]+$/) { print $3 } 
+            else if ($1 ~ /^[AMCU]$/) { print $2 }
+          }' cambios.txt > rutas.txt
+
+          echo "==== Rutas a verificar ===="
+          cat rutas.txt || true
+
+          # Exportamos como output para el siguiente paso
+          RUTAS=$(paste -sd " " rutas.txt)
+          echo "rutas=$RUTAS" >> $GITHUB_OUTPUT
+
+      - name: Verificar que los archivos sean PDF reales
+        if: steps.cambios.outputs.rutas != ''
+        run: |
+          set -euo pipefail
+          failed=0
+
+          # Función: verifica magic header del PDF
+          es_pdf() {
+            local f="$1"
+            # Verifica que exista y sea archivo regular
+            [[ -f "$f" ]] || return 1
+            # Lee los primeros 5 bytes y compara con %PDF-
+            local header
+            header=$(head -c 5 -- "$f" 2>/dev/null || true)
+            [[ "$header" == "%PDF-" ]]
+          }
+
+          for archivo in ${{ steps.cambios.outputs.rutas }}; do
+            # Saltar si es directorio (por si acaso)
+            [[ -d "$archivo" ]] && continue
+
+            if es_pdf "$archivo"; then
+              echo "$archivo es un PDF válido (firma %PDF- detectada)."
+            else
+              echo "Error: $archivo no es un PDF válido (firma %PDF- no detectada)."
+              failed=1
+            fi
+          done
+
+          if [[ $failed -ne 0 ]]; then
+            echo "Al menos un archivo no es PDF. Falla el job."
+            exit 1
+          else
+            echo "Todos los archivos modificados son PDF válidos."
+          fi
+
+      - name: No hay archivos para validar (solo por claridad)
+        if: steps.cambios.outputs.rutas == ''
+        run: echo "No hay archivos agregados/modificados/renombrados en este commit."
