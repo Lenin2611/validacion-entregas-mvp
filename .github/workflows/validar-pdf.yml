@@ -23,6 +23,7 @@ jobs:
         run: |
           # Obtenemos archivos agregados/modificados/renombrados en el commit
           # Formato: <STATUS>\t<RUTA>
+          git config --global core.quotepath false
           git diff-tree --no-commit-id --name-status -r "$GITHUB_SHA" | tee cambios.txt
 
           echo "==== Archivos detectados ===="
