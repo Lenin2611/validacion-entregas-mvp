@@ -86,7 +86,7 @@ jobs:
           failed=0
 
           # Patrón esperado de nombre
-          PATRON='^[A-Za-z]+_[A-Za-z]+_Actividad[0-9]+\.pdf$'
+          PATRON='^[A-Za-zñÑáéíóúÁÉÍÓÚ]+_[A-Za-zñÑáéíóúÁÉÍÓÚ]+_Actividad[0-9]+\.pdf$'
 
           for archivo in ${{ steps.cambios.outputs.rutas }}; do
 
