@@ -78,6 +78,37 @@ jobs:
             echo "Todos los archivos modificados son PDF válidos."
           fi
 
+      - name: Verificar que el nombre del archivo cumpla el formato requerido
+        if: steps.cambios.outputs.rutas != ''
+        run: |
+          set -euo pipefail
+          failed=0
+
+          # Patrón esperado de nombre
+          PATRON='^[A-Za-z]+_[A-Za-z]+_Actividad[0-9]+\.pdf$'
+
+          for archivo in ${{ steps.cambios.outputs.rutas }}; do
+
+            # Obtener solo el nombre del archivo sin la ruta
+            nombre=$(basename "$archivo")
+
+            if [[ "$nombre" =~ $PATRON ]]; then
+              echo "$nombre cumple con el formato requerido."
+            else
+              echo "Error: $nombre no cumple el formato esperado."
+              echo "Formato esperado: Apellido_Nombre_Actividad#.pdf"
+              failed=1
+            fi
+
+          done
+
+          if [[ $failed -ne 0 ]]; then
+            echo "Al menos un archivo tiene nombre incorrecto."
+            exit 1
+          else
+            echo "Todos los archivos cumplen el formato de nombre."
+          fi
+
       - name: No hay archivos para validar (solo por claridad)
         if: steps.cambios.outputs.rutas == ''
         run: echo "No hay archivos agregados/modificados/renombrados en este commit."
